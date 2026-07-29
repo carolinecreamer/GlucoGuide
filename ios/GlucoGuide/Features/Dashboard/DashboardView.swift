@@ -78,14 +78,22 @@ struct DashboardView: View {
     private func refresh() async {
         isLoading = true
         defer { isLoading = false }
+        errorMessage = nil
+
         do {
             readings = try await appState.api.get("/api/v1/glucose/recent")
+        } catch {
+            errorMessage = "Glucose: \(error.localizedDescription)"
+        }
+
+        do {
             insights = try await appState.api.post(
                 "/api/v1/insights/generate",
                 body: EmptyBody()
             )
         } catch {
-            errorMessage = error.localizedDescription
+            let insightError = "Insights: \(error.localizedDescription)"
+            errorMessage = errorMessage.map { "\($0)\n\(insightError)" } ?? insightError
         }
     }
 }
@@ -115,4 +123,3 @@ private struct InsightCard: View {
         .background(.indigo.opacity(0.09), in: RoundedRectangle(cornerRadius: 18))
     }
 }
-

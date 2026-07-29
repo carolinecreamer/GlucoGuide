@@ -3,6 +3,7 @@ import Foundation
 enum APIError: LocalizedError {
     case invalidResponse
     case server(status: Int, message: String)
+    case invalidDate(String)
 
     var errorDescription: String? {
         switch self {
@@ -10,6 +11,8 @@ enum APIError: LocalizedError {
             "The server returned an invalid response."
         case .server(_, let message):
             message
+        case .invalidDate(let value):
+            "The server returned an unsupported date: \(value)"
         }
     }
 }
@@ -27,7 +30,27 @@ struct APIClient {
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [
+                .withInternetDateTime,
+                .withFractionalSeconds
+            ]
+            if let date = fractional.date(from: value) {
+                return date
+            }
+
+            let standard = ISO8601DateFormatter()
+            standard.formatOptions = [.withInternetDateTime]
+            if let date = standard.date(from: value) {
+                return date
+            }
+
+            throw APIError.invalidDate(value)
+        }
         return decoder
     }()
 
@@ -72,4 +95,3 @@ struct APIClient {
         return try decoder.decode(Output.self, from: data)
     }
 }
-

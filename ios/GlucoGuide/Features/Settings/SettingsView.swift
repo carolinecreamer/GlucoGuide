@@ -39,7 +39,10 @@ struct SettingsView: View {
                                     "/api/v1/integrations/dexcom/sync",
                                     body: EmptySettingsBody()
                                 )
-                                message = "Imported \(result.inserted ?? 0) new readings."
+                                let count = result.inserted ?? 0
+                                message = count == 0
+                                    ? "Glucose is already up to date; no new readings were returned."
+                                    : "Imported \(count) new readings."
                             } catch {
                                 message = error.localizedDescription
                             }
@@ -52,7 +55,10 @@ struct SettingsView: View {
                                     "/api/v1/sample-data",
                                     body: EmptySettingsBody()
                                 )
-                                message = "Created \(result.created ?? 0) sample readings."
+                                let count = result.created ?? 0
+                                message = count == 0
+                                    ? "Existing glucose data was kept; sample data was not added."
+                                    : "Created \(count) sample readings."
                             } catch {
                                 message = error.localizedDescription
                             }
@@ -80,4 +86,3 @@ struct SettingsView: View {
 }
 
 private struct EmptySettingsBody: Codable {}
-
