@@ -29,7 +29,7 @@ from app.schemas import (
     RegimenInput,
 )
 from app.services.advisory import exercise_guidance, meal_guidance
-from app.services.dexcom import DexcomService
+from app.services.dexcom import DexcomOAuthError, DexcomService
 from app.services.insights import generate_insights
 
 router = APIRouter(prefix="/api/v1")
@@ -209,6 +209,8 @@ async def dexcom_callback(
 ) -> str:
     try:
         await DexcomService(settings).complete_authorization(session, code, state)
+    except DexcomOAuthError as error:
+        raise HTTPException(502, str(error)) from error
     except (ValueError, RuntimeError) as error:
         raise HTTPException(400, str(error)) from error
     except httpx.HTTPError as error:
@@ -231,6 +233,8 @@ async def dexcom_sync(
     try:
         inserted = await DexcomService(settings).sync_egvs(session, current_user, hours)
         return {"inserted": inserted}
+    except DexcomOAuthError as error:
+        raise HTTPException(502, str(error)) from error
     except ValueError as error:
         raise HTTPException(409, str(error)) from error
     except RuntimeError as error:

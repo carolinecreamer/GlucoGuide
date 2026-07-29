@@ -11,6 +11,33 @@ from app.models import DexcomConnection, GlucoseReading, OAuthState
 from app.services.crypto import TokenCipher
 
 
+class DexcomOAuthError(RuntimeError):
+    pass
+
+
+def raise_for_oauth_error(response: httpx.Response) -> None:
+    if response.is_success:
+        return
+
+    error_code = "unknown_error"
+    error_description = "Dexcom did not provide additional details."
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            error_code = str(payload.get("error") or error_code)
+            error_description = str(
+                payload.get("error_description")
+                or payload.get("message")
+                or error_description
+            )
+    except ValueError:
+        pass
+
+    raise DexcomOAuthError(
+        f"Dexcom OAuth error '{error_code}': {error_description}"
+    )
+
+
 class DexcomService:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -62,7 +89,7 @@ class DexcomService:
                     "redirect_uri": self.settings.dexcom_redirect_uri,
                 },
             )
-            response.raise_for_status()
+            raise_for_oauth_error(response)
             token = response.json()
 
         cipher = TokenCipher(self.settings)
@@ -147,7 +174,7 @@ class DexcomService:
                     "grant_type": "refresh_token",
                 },
             )
-            response.raise_for_status()
+            raise_for_oauth_error(response)
             token = response.json()
 
         connection.encrypted_access_token = cipher.encrypt(token["access_token"])
