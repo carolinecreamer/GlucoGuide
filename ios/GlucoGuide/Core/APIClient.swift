@@ -1,0 +1,75 @@
+import Foundation
+
+enum APIError: LocalizedError {
+    case invalidResponse
+    case server(status: Int, message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            "The server returned an invalid response."
+        case .server(_, let message):
+            message
+        }
+    }
+}
+
+struct APIClient {
+    let baseURL: URL
+
+    private let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    func get<T: Decodable>(_ path: String) async throws -> T {
+        try await send(path: path, method: "GET", body: Optional<String>.none)
+    }
+
+    func post<Input: Encodable, Output: Decodable>(
+        _ path: String,
+        body: Input
+    ) async throws -> Output {
+        try await send(path: path, method: "POST", body: body)
+    }
+
+    func put<Input: Encodable, Output: Decodable>(
+        _ path: String,
+        body: Input
+    ) async throws -> Output {
+        try await send(path: path, method: "PUT", body: body)
+    }
+
+    private func send<Input: Encodable, Output: Decodable>(
+        path: String,
+        method: String,
+        body: Input?
+    ) async throws -> Output {
+        var request = URLRequest(url: baseURL.appending(path: path))
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let body {
+            request.httpBody = try encoder.encode(body)
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+        guard 200..<300 ~= http.statusCode else {
+            let message = String(data: data, encoding: .utf8) ?? "Request failed"
+            throw APIError.server(status: http.statusCode, message: message)
+        }
+        return try decoder.decode(Output.self, from: data)
+    }
+}
+

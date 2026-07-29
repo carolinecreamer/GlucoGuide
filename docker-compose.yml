@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: glucoguide
+      POSTGRES_USER: glucoguide
+      POSTGRES_PASSWORD: local-development-only
+    ports:
+      - "5432:5432"
+    volumes:
+      - glucoguide-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glucoguide"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  glucoguide-postgres:
+
