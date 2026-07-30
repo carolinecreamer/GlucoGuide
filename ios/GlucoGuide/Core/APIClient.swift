@@ -49,6 +49,17 @@ struct APIClient {
                 return date
             }
 
+            for format in ["yyyy-MM-dd'T'HH:mm:ss.SSSSSS", "yyyy-MM-dd'T'HH:mm:ss"] {
+                let formatter = DateFormatter()
+                formatter.calendar = Calendar(identifier: .iso8601)
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                formatter.dateFormat = format
+                if let date = formatter.date(from: value) {
+                    return date
+                }
+            }
+
             throw APIError.invalidDate(value)
         }
         return decoder
