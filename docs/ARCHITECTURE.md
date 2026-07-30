@@ -39,10 +39,20 @@ Only generate an insight after minimum evidence thresholds. Show counterexamples
 and suppress inference around confounders such as recent exercise, illness, sensor gaps, or
 unlogged insulin as those data become available.
 
+Current prototype thresholds are intentionally simple and visible:
+
+- basal-pattern review requires at least three nights with six readings between 00:00 and 06:00;
+- meal-ratio review requires at least three meals in the same day period, each with a pre-meal
+  reading and glucose coverage 90–180 minutes afterward;
+- the engine reevaluates stored outcomes when insights refresh; it does not fine-tune an LLM or
+  silently update dosing logic.
+
+The synthetic demo-history endpoint exists only to exercise the example workflow. Synthetic
+records must be removed before interpreting personal patterns.
+
 ## Later model path
 
 Use a hierarchical model that starts from population priors and gradually personalizes, rather
 than training a free-form agent on sparse individual data. Validate retrospectively, then run
 silently, then expose advisory output under clinician-approved bounds. Monitor calibration,
 subgroup performance, drift, false reassurance, and alert burden.
-

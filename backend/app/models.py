@@ -79,6 +79,17 @@ class InsulinDose(Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
+class MealDoseLink(Base):
+    __tablename__ = "meal_dose_links"
+
+    meal_id: Mapped[str] = mapped_column(
+        ForeignKey("meal_logs.id"), primary_key=True
+    )
+    dose_id: Mapped[str] = mapped_column(
+        ForeignKey("insulin_doses.id"), unique=True, index=True
+    )
+
+
 class GlucoseReading(Base):
     __tablename__ = "glucose_readings"
 
@@ -124,4 +135,3 @@ class Insight(Base):
         String(50), default="clinician_review"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
-

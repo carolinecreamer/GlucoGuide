@@ -19,6 +19,11 @@ struct LogsView: View {
                 } label: {
                     Label("Insulin", systemImage: "syringe")
                 }
+                NavigationLink {
+                    HistoryView()
+                } label: {
+                    Label("History", systemImage: "clock.arrow.circlepath")
+                }
             }
             .navigationTitle("Log")
         }
@@ -32,6 +37,9 @@ private struct MealLogView: View {
     @State private var protein = 0.0
     @State private var fat = 0.0
     @State private var guidance: Guidance?
+    @State private var estimate: MealDoseEstimate?
+    @State private var logConfirmedInsulin = false
+    @State private var confirmedUnits = 0.0
     @State private var message: String?
 
     var body: some View {
@@ -44,10 +52,41 @@ private struct MealLogView: View {
                 Task { await checkGuidance() }
             }
             .disabled(name.isEmpty)
-            Button("Save meal") {
+            Button("Calculate from prescribed I:C ratio") {
+                Task { await calculateEstimate() }
+            }
+            .disabled(carbs <= 0)
+
+            if let estimate {
+                Section("Prescribed-ratio calculation") {
+                    LabeledContent("Arithmetic estimate") {
+                        Text("\(estimate.estimatedUnits, specifier: "%.1f") U")
+                    }
+                    Text(estimate.explanation)
+                    Text(estimate.disclaimer)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Toggle("Also log my confirmed insulin", isOn: $logConfirmedInsulin)
+                    if logConfirmedInsulin {
+                        LabeledContent("Confirmed units") {
+                            TextField(
+                                "Units",
+                                value: $confirmedUnits,
+                                format: .number
+                            )
+                            .keyboardType(.decimalPad)
+                        }
+                        Text("Enter what you actually chose or delivered.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Button(logConfirmedInsulin ? "Save meal and confirmed insulin" : "Save meal") {
                 Task { await save() }
             }
-            .disabled(name.isEmpty)
+            .disabled(name.isEmpty || (logConfirmedInsulin && confirmedUnits <= 0))
             if let guidance {
                 Section(guidance.headline) {
                     ForEach(guidance.guidance, id: \.self) { Text($0) }
@@ -89,6 +128,19 @@ private struct MealLogView: View {
     }
 
     @MainActor
+    private func calculateEstimate() async {
+        do {
+            estimate = try await appState.api.post(
+                "/api/v1/guidance/meal-dose-estimate",
+                body: MealDoseEstimateInput(occurredAt: .now, carbsG: carbs)
+            )
+            confirmedUnits = estimate?.estimatedUnits ?? 0
+        } catch {
+            message = error.localizedDescription
+        }
+    }
+
+    @MainActor
     private func save() async {
         do {
             let input = MealInput(
@@ -100,13 +152,89 @@ private struct MealLogView: View {
                 fiberG: 0,
                 notes: nil
             )
-            let _: IdentifierResponse = try await appState.api.post(
-                "/api/v1/logs/meals",
-                body: input
+            let _: MealWithDoseResponse = try await appState.api.post(
+                "/api/v1/logs/meals-with-dose",
+                body: MealWithDoseInput(
+                    meal: input,
+                    confirmedUnits: logConfirmedInsulin ? confirmedUnits : nil
+                )
             )
-            message = "Meal saved."
+            message = logConfirmedInsulin
+                ? "Meal and confirmed insulin saved together."
+                : "Meal saved."
         } catch {
             message = error.localizedDescription
+        }
+    }
+}
+
+private struct HistoryView: View {
+    @Environment(AppState.self) private var appState
+    @State private var items: [HistoryItem] = []
+    @State private var errorMessage: String?
+
+    var body: some View {
+        List(items) { item in
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon(for: item.itemType))
+                    .foregroundStyle(color(for: item.itemType))
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title).font(.headline)
+                    Text(item.detail).font(.subheadline).foregroundStyle(.secondary)
+                    Text(item.occurredAt, format: .dateTime.month().day().hour().minute())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if item.relatedId != nil {
+                        Text("Linked to meal")
+                            .font(.caption2)
+                            .foregroundStyle(.indigo)
+                    }
+                }
+            }
+        }
+        .overlay {
+            if items.isEmpty && errorMessage == nil {
+                ContentUnavailableView(
+                    "No logs yet",
+                    systemImage: "clock",
+                    description: Text("Meals, insulin, and exercise will appear here.")
+                )
+            }
+        }
+        .navigationTitle("History")
+        .task {
+            do {
+                items = try await appState.api.get("/api/v1/logs/history")
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .padding()
+                    .background(.thinMaterial)
+            }
+        }
+    }
+
+    private func icon(for type: String) -> String {
+        switch type {
+        case "meal": "fork.knife"
+        case "insulin": "syringe"
+        case "exercise": "figure.run"
+        default: "circle"
+        }
+    }
+
+    private func color(for type: String) -> Color {
+        switch type {
+        case "meal": .orange
+        case "insulin": .indigo
+        case "exercise": .green
+        default: .secondary
         }
     }
 }

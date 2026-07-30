@@ -95,6 +95,46 @@ struct DoseInput: Codable {
     let notes: String?
 }
 
+struct MealWithDoseInput: Codable {
+    let meal: MealInput
+    let confirmedUnits: Double?
+}
+
+struct MealDoseEstimateInput: Codable {
+    let occurredAt: Date
+    let carbsG: Double
+}
+
+struct MealDoseEstimate: Codable {
+    let prescribedRatio: Double
+    let estimatedUnits: Double
+    let periodStartMinute: Int
+    let explanation: String
+    let disclaimer: String
+}
+
+struct MealWithDoseResponse: Codable {
+    let mealId: String
+    let doseId: String?
+}
+
+struct HistoryItem: Codable, Identifiable {
+    let id: String
+    let occurredAt: Date
+    let itemType: String
+    let title: String
+    let detail: String
+    let relatedId: String?
+}
+
+struct PersonalizationReadiness: Codable {
+    let overnightNightsReady: Int
+    let overnightNightsRequired: Int
+    let mealPeriodCounts: [String: Int]
+    let mealsPerPeriodRequired: Int
+    let explanation: [String]
+}
+
 struct Guidance: Codable {
     let status: String
     let headline: String
@@ -126,4 +166,5 @@ struct DexcomStart: Codable {
 struct CountResponse: Codable {
     let created: Int?
     let inserted: Int?
+    let deleted: Int?
 }

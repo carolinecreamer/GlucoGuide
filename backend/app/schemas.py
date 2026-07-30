@@ -52,6 +52,41 @@ class DoseInput(BaseModel):
     notes: str | None = None
 
 
+class MealWithDoseInput(BaseModel):
+    meal: MealInput
+    confirmed_units: float | None = Field(default=None, gt=0, le=100)
+
+
+class MealDoseEstimateRequest(BaseModel):
+    occurred_at: datetime
+    carbs_g: float = Field(gt=0, le=500)
+
+
+class MealDoseEstimateView(BaseModel):
+    prescribed_ratio: float
+    estimated_units: float
+    period_start_minute: int
+    explanation: str
+    disclaimer: str
+
+
+class HistoryItem(BaseModel):
+    id: str
+    occurred_at: datetime
+    item_type: str
+    title: str
+    detail: str
+    related_id: str | None = None
+
+
+class PersonalizationReadiness(BaseModel):
+    overnight_nights_ready: int
+    overnight_nights_required: int
+    meal_period_counts: dict[str, int]
+    meals_per_period_required: int
+    explanation: list[str]
+
+
 class InsightView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -86,4 +121,3 @@ class GuidanceView(BaseModel):
     evidence: list[str]
     uncertainty: str
     emergency_note: str
-

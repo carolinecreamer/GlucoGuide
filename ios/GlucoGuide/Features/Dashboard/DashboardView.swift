@@ -5,6 +5,7 @@ struct DashboardView: View {
     @Environment(AppState.self) private var appState
     @State private var readings: [GlucoseReading] = []
     @State private var insights: [Insight] = []
+    @State private var readiness: PersonalizationReadiness?
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -48,6 +49,9 @@ struct DashboardView: View {
                             description: Text(
                                 "GlucoGuide waits for repeated evidence before suggesting a clinician review."
                             )
+                            if let readiness {
+                                ReadinessCard(readiness: readiness)
+                            }
                         )
                     } else {
                         ForEach(insights) { insight in
@@ -95,6 +99,13 @@ struct DashboardView: View {
             let insightError = "Insights: \(error.localizedDescription)"
             errorMessage = errorMessage.map { "\($0)\n\(insightError)" } ?? insightError
         }
+
+        do {
+            readiness = try await appState.api.get("/api/v1/insights/readiness")
+        } catch {
+            let readinessError = "Readiness: \(error.localizedDescription)"
+            errorMessage = errorMessage.map { "\($0)\n\(readinessError)" } ?? readinessError
+        }
     }
 }
 
@@ -112,6 +123,38 @@ private struct InsightCard: View {
             ForEach(insight.evidence.keys.sorted(), id: \.self) { key in
                 LabeledContent(key.replacingOccurrences(of: "_", with: " ").capitalized) {
                     Text(insight.evidence[key]?.description ?? "—")
+                }
+
+                private struct ReadinessCard: View {
+                    let readiness: PersonalizationReadiness
+
+                    var body: some View {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Personalization progress").font(.headline)
+                            ProgressView(
+                                value: Double(readiness.overnightNightsReady),
+                                total: Double(readiness.overnightNightsRequired)
+                            ) {
+                                Text(
+                                    "Overnight: \(readiness.overnightNightsReady)/"
+                                    + "\(readiness.overnightNightsRequired) qualifying nights"
+                                )
+                            }
+                            ForEach(["breakfast", "lunch", "dinner"], id: \.self) { period in
+                                let count = readiness.mealPeriodCounts[period] ?? 0
+                                Text(
+                                    "\(period.capitalized): \(count)/"
+                                    + "\(readiness.mealsPerPeriodRequired) meals with outcome data"
+                                )
+                                .font(.subheadline)
+                            }
+                            ForEach(readiness.explanation, id: \.self) { item in
+                                Text(item).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding()
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                    }
                 }
                 .font(.caption)
             }

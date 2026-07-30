@@ -63,6 +63,40 @@ struct SettingsView: View {
                                 message = error.localizedDescription
                             }
                         }
+                        Button("Load demo learning history") {
+                            Task {
+                                do {
+                                    let result: CountResponse = try await appState.api.post(
+                                        "/api/v1/sample-history",
+                                        body: EmptySettingsBody()
+                                    )
+                                    let count = result.created ?? 0
+                                    message = count == 0
+                                        ? "Demo learning history is already loaded."
+                                        : "Loaded synthetic history. Refresh Today to generate insights."
+                                } catch {
+                                    message = error.localizedDescription
+                                }
+                            }
+                        }
+                        Text(
+                            "Demo history is synthetic and affects the timeline and insights. "
+                            + "Remove it before evaluating your real patterns."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        Button("Remove demo learning history", role: .destructive) {
+                            Task {
+                                do {
+                                    let result: CountResponse = try await appState.api.delete(
+                                        "/api/v1/sample-history"
+                                    )
+                                    message = "Removed \(result.deleted ?? 0) synthetic records."
+                                } catch {
+                                    message = error.localizedDescription
+                                }
+                            }
+                        }
                     }
                 }
 

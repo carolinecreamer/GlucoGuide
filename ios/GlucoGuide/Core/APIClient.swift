@@ -83,6 +83,10 @@ struct APIClient {
         try await send(path: path, method: "PUT", body: body)
     }
 
+    func delete<Output: Decodable>(_ path: String) async throws -> Output {
+        try await send(path: path, method: "DELETE", body: Optional<String>.none)
+    }
+
     private func send<Input: Encodable, Output: Decodable>(
         path: String,
         method: String,
